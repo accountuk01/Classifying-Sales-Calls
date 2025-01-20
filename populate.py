@@ -31,29 +31,41 @@ def commit_files(files, date, author, author_email):
     for file in files:
         subprocess.run(["git", "add", file], check=True)
 
-    commit_date = date.strftime("%Y-%m-%d 00:00:00")
-    commit_message = f"Adding files from {date}"
-
-    env = os.environ.copy()
-    # Here'This is the most important bit: these environment variables are used
-    # by Git to set the author and committer dates and names
-    env["GIT_AUTHOR_DATE"] = commit_date
-    env["GIT_COMMITTER_DATE"] = commit_date
-    env["GIT_AUTHOR_NAME"] = author
-    env["GIT_AUTHOR_EMAIL"] = author_email
-    env["GIT_COMMITTER_NAME"] = author
-    env["GIT_COMMITTER_EMAIL"] = author_email
-
-    result = subprocess.run(
-        ["git", "commit", "-m", commit_message],
+    # Check if there are changes staged for commit
+    status_result = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
         capture_output=True,
         text=True,
-        check=True,
-        env=env,
+        check=False,
     )
 
-    commit_hash = result.stdout.split()[1]
-    return commit_hash
+    if status_result.returncode != 0:
+        # There are changes to commit
+        commit_date = date.strftime("%Y-%m-%d 00:00:00")
+        commit_message = f"Adding files from {date}"
+
+        env = os.environ.copy()
+        env["GIT_AUTHOR_DATE"] = commit_date
+        env["GIT_COMMITTER_DATE"] = commit_date
+        env["GIT_AUTHOR_NAME"] = author
+        env["GIT_AUTHOR_EMAIL"] = author_email
+        env["GIT_COMMITTER_NAME"] = author
+        env["GIT_COMMITTER_EMAIL"] = author_email
+
+        result = subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+        )
+
+        commit_hash = result.stdout.split()[1]
+        return commit_hash
+    else:
+        print(f"No changes to commit for {date}. Skipping commit.")
+        return None
+
 
 
 def main():
